@@ -8,10 +8,15 @@
 package org.pgsqlite;
 
 import android.annotation.SuppressLint;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteException;
-import android.database.sqlite.SQLiteStatement;
+//import android.database.Cursor;
+//import android.database.sqlite.SQLiteDatabase;
+//import android.database.sqlite.SQLiteException;
+//import android.database.sqlite.SQLiteStatement;
+import net.sqlcipher.Cursor;
+import net.sqlcipher.database.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteException;
+import net.sqlcipher.database.SQLiteStatement;
+
 import android.content.Context;
 import android.util.Base64;
 
@@ -202,7 +207,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
 
     private boolean executeAndPossiblyThrow(Action action, ReadableMap args, CallbackContext cbc){
         String dbname;
-
+        String key;
         switch (action) {
             case echoStringValue:
                 String echo_value = SQLitePluginConverter.getString(args,"value","");
@@ -211,8 +216,9 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
 
             case open:
                 dbname = SQLitePluginConverter.getString(args,"name","");
+                key = SQLitePluginConverter.getString(args, "key", null);
                 // open database and start reading its queue
-                this.startDatabase(dbname, args, cbc);
+                this.startDatabase(dbname, key, args, cbc);
                 break;
 
             case close:
@@ -307,7 +313,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
      * @param options - options passed in from JS
      * @param cbc - JS callback context
      */
-    private void startDatabase(String dbname, ReadableMap options, CallbackContext cbc) {
+    private void startDatabase(String dbname, String key, ReadableMap options, CallbackContext cbc) {
         // TODO: is it an issue that we can orphan an existing thread?  What should we do here?
         // If we re-use the existing DBRunner it might be in the process of closing...
         DBRunner r = dbrmap.get(dbname);
@@ -319,7 +325,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
             // than orphaning the old DBRunner.
             cbc.success("database started");
         } else {
-            r = new DBRunner(dbname, options, cbc);
+            r = new DBRunner(dbname, key, options, cbc);
             dbrmap.put(dbname, r);
             this.getThreadPool().execute(r);
         }
@@ -335,7 +341,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
      * @return instance of SQLite database
      * @throws Exception
      */
-    private SQLiteDatabase openDatabase(String dbname, String assetFilePath, int openFlags, CallbackContext cbc) throws Exception {
+    private SQLiteDatabase openDatabase(String dbname, String key, String assetFilePath, int openFlags, CallbackContext cbc) throws Exception {
         InputStream in = null;
         File dbfile = null;
         try {
@@ -411,7 +417,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
 
             FLog.v(TAG, "DB file is ready, proceeding to OPEN SQLite DB: " + dbfile.getAbsolutePath());
 
-            SQLiteDatabase mydb = SQLiteDatabase.openDatabase(dbfile.getAbsolutePath(), null, openFlags);
+            SQLiteDatabase mydb = SQLiteDatabase.openDatabase(dbfile.getAbsolutePath(), key, null, openFlags);
 
             if (cbc != null)
                 cbc.success("Database opened");
@@ -508,7 +514,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
         if (runner != null) {
             File databasePath = this.getContext().getDatabasePath(dbNameToAttach);
             String filePathToAttached = databasePath.getAbsolutePath();
-            String statement = "ATTACH DATABASE '" + filePathToAttached + "' AS " + dbAlias;
+            String statement = "ATTACH DATABASE '" + filePathToAttached + "' AS " + dbAlias + " KEY '" + runner.key+ "'";
             // TODO: get rid of qid as it's just hardcoded to 1111 in js layer
             DBQuery query = new DBQuery(new String [] {statement}, new String[] {"1111"}, null, cbc);
             try {
@@ -858,6 +864,11 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
         }
     }
 
+    private void closeQuietly(SQLiteStatement statement) {
+        if (statement != null) {
+            statement.close();
+        }
+    }
     private void closeQuietly(Closeable closeable) {
         if (closeable != null) {
             try {
@@ -870,6 +881,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
 
     private class DBRunner implements Runnable {
         final String dbname;
+        final String key;
         final int openFlags;
         private String assetFilename;
         private boolean androidLockWorkaround;
@@ -878,8 +890,9 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
 
         SQLiteDatabase mydb;
 
-        DBRunner(final String dbname, ReadableMap options, CallbackContext cbc) {
+        DBRunner(final String dbname, String key, ReadableMap options, CallbackContext cbc) {
             this.dbname = dbname;
+            this.key = key;
             int openFlags = SQLiteDatabase.OPEN_READWRITE | SQLiteDatabase.CREATE_IF_NECESSARY;
             try {
                 this.assetFilename = SQLitePluginConverter.getString(options,"assetFilename",null);
@@ -901,7 +914,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
 
         public void run() {
             try {
-                this.mydb = openDatabase(dbname, this.assetFilename, this.openFlags, this.openCbc);
+                this.mydb = openDatabase(dbname, key, this.assetFilename, this.openFlags, this.openCbc);
             } catch (SQLiteException ex) {
                 FLog.e(TAG, "SQLite error opening database, stopping db thread", ex);
                 if (this.openCbc != null) {
@@ -930,7 +943,7 @@ public class SQLitePlugin extends ReactContextBaseJavaModule {
                     if (androidLockWorkaround && dbq.queries.length == 1 && dbq.queries[0].equals("COMMIT")) {
                         // FLog.v(TAG, "close and reopen db");
                         closeDatabaseNow(dbname);
-                        this.mydb = openDatabase(dbname, "", this.openFlags, null);
+                        this.mydb = openDatabase(dbname, key, "", this.openFlags, null);
                         // FLog.v(TAG, "close and reopen db finished");
                     }
 
