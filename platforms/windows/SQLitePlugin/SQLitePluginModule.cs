@@ -326,12 +326,55 @@ namespace Org.PGSQLite.SQLitePlugin
             });
         }
 
+        public class DBConfigOptions
+        {
+            public string path { get; set; }
+            public string dbName { get; set; }
+            public string dbAlias { get; set; }
+        }
+
         [ReactMethod]
         public void attach(JObject options, ICallback success, ICallback error)
         {
             QueueWithCancellation(() =>
             {
-                error.Invoke("attach isn't supported on this platform");
+                var isError = true;
+                DBConfigOptions configOptions = options.ToObject<DBConfigOptions>();
+                if (configOptions != null)
+                {
+                    var dbFileName = configOptions.path;
+                    var dbName = configOptions.dbName;
+                    var dbAlias = configOptions.dbAlias;
+                    if (dbFileName != null || dbName != null || dbAlias != null)
+                    {
+                        var dbInfo = _openDBs[dbFileName];
+                        var dbInfoToAttach = _openDBs[dbName];
+
+                        var dbPathToAttach = dbInfoToAttach.Path;
+                        var SQL = "ATTACH '" + dbPathToAttach + "' AS " + dbAlias;
+
+                        DBQuery query = new DBQuery();
+                        query.SQL = SQL;
+                        query.QID = 1;
+                        try
+                        {
+                            var rawResult = ExecuteQuery(dbInfo, query);
+                            isError = false;
+                        }
+                        catch (RNSQLiteException ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine("SQLitePluginModule: Error attaching database: " + dbInfo.Path);
+                        }
+                    } 
+                } 
+
+                if (isError)
+                {
+                    error.Invoke("Database attachment is failed");
+                } else
+                {
+                    success.Invoke("Database attachment is success");
+                }
                 return Task.CompletedTask;
             });
         }
