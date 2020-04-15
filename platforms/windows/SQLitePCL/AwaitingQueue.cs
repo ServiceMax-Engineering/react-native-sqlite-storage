@@ -94,7 +94,7 @@ using System.Reactive;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Org.PGSQLite.SQLitePlugin
+namespace SQLite.Net
 {
     /// <summary>
     /// Serializes the work of all Tasks that are added to its queue. Awaits the
