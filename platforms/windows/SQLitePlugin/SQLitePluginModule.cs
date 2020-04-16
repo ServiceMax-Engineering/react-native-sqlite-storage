@@ -443,7 +443,7 @@ namespace SQLitePlugin
             {
                 var columnName = _sqliteAPI.ColumnName16(statement, i);
                 JSValue columnValue = ExtractColumn(statement, i);
-                if (columnValue != null)
+                if (columnValue.IsNull)
                 {
                     row[columnName] = columnValue;
                 }
@@ -473,7 +473,7 @@ namespace SQLitePlugin
                     var previousRowsAffected = _sqliteAPI.TotalChanges(dbInfo.Handle);
 
                     var statement = _sqliteAPI.Prepare2(dbInfo.Handle, query.sql);
-                    if (query.Params != null)
+                    if (query.Params.IsNull)
                     {
                         var argIndex = 0;
                         foreach (var arg in query.Params.To<List<JSValue>>())
