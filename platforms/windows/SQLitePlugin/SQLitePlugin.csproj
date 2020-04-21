@@ -128,6 +128,9 @@
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" Condition=" '$(NETCoreUWPVersion)' != '' ">
       <Version>$(NETCoreUWPVersion)</Version>
     </PackageReference>
+    <PackageReference Include="Newtonsoft.Json">
+      <Version>12.0.3</Version>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\react-native-windows\Microsoft.ReactNative\Microsoft.ReactNative.vcxproj">
