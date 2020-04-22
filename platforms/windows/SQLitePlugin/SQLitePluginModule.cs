@@ -13,20 +13,24 @@
 */
 
 using Newtonsoft.Json.Linq;
-using ReactNative.Bridge;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.ReactNative.Managed;
+using System.Diagnostics;
+using Microsoft.ReactNative;
 
-namespace Org.PGSQLite.SQLitePlugin
+namespace SQLitePlugin
 {
     /// <summary>
     /// A module that allows JS to utilize sqlite databases.
     /// </summary>
-    public class SQLitePluginModule : NativeModuleBase
+
+    [ReactModule("SQLite")]
+    internal sealed class SQLitePlugin
     {
         public enum WebSQLError
         {
@@ -154,18 +158,19 @@ namespace Org.PGSQLite.SQLitePlugin
 
         private readonly SQLite.Net.Platform.WinRT.SQLiteApiWinRT _sqliteAPI;
         private readonly Dictionary<string, OpenDB> _openDBs = new Dictionary<string, OpenDB>();
-        private readonly AwaitingQueue _awaitingQueue = new AwaitingQueue();
+        private readonly SQLite.Net.AwaitingQueue _awaitingQueue = new SQLite.Net.AwaitingQueue();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         /// <summary>
         /// Instantiates the <see cref="SQLitePluginModule"/>.
         /// </summary>
-        internal SQLitePluginModule()
+        public SQLitePlugin() : base()
         {
             _sqliteAPI = new SQLite.Net.Platform.WinRT.SQLiteApiWinRT(tempFolderPath: null, useWinSqlite: true);
         }
 
-        public override void OnReactInstanceDispose()
+
+        /*public override void OnReactInstanceDispose()
         {
             _cancellationTokenSource.Cancel();
             // TODO: When React Native Windows introduces asynchronous disposal
@@ -182,18 +187,7 @@ namespace Org.PGSQLite.SQLitePlugin
                 }
             }
             _openDBs.Clear();
-        }
-
-        /// <summary>
-        /// The name of the native module.
-        /// </summary>
-        public override string Name
-        {
-            get
-            {
-                return "SQLite";
-            }
-        }
+        }*/
 
         private async void QueueWithCancellation(Func<Task> work)
         {
@@ -202,15 +196,15 @@ namespace Org.PGSQLite.SQLitePlugin
 
         public class EchoStringValueOptions
         {
-            public string Value { get; set; }
+            public string value { get; set; }
         }
 
         [ReactMethod]
-        public void echoStringValue(EchoStringValueOptions options, ICallback success, ICallback error)
+        public void echoStringValue(EchoStringValueOptions options, ReactCallback<string> success, ReactCallback<string> error)
         {
             QueueWithCancellation(() =>
             {
-                success.Invoke(options.Value);
+                success.Invoke(options.value);
                 return Task.CompletedTask;
             });
         }
@@ -218,7 +212,7 @@ namespace Org.PGSQLite.SQLitePlugin
         public class OpenOptions
         {
             // Path at which to store the database
-            public string Name { get; set; }
+            public string name { get; set; }
 
             // Optional. When creating the DB, uses this file as the initial state.
             public string AssetFileName { get; set; }
@@ -227,11 +221,11 @@ namespace Org.PGSQLite.SQLitePlugin
         }
 
         [ReactMethod]
-        public void open(OpenOptions options, ICallback success, ICallback error)
+        public void open(OpenOptions options, ReactCallback<string> success, ReactCallback<string> error)
         {
             QueueWithCancellation(async () =>
             {
-                var dbFileName = options.Name;
+                var dbFileName = options.name;
 
                 if (dbFileName == null)
                 {
@@ -291,15 +285,15 @@ namespace Org.PGSQLite.SQLitePlugin
 
         public class CloseOptions
         {
-            public string Path { get; set; }
+            public string path { get; set; }
         }
 
         [ReactMethod]
-        public void close(CloseOptions options, ICallback success, ICallback error)
+        public void close(CloseOptions options, ReactCallback<string> success, ReactCallback<string> error)
         {
             QueueWithCancellation(() =>
             {
-                var dbFileName = options.Path;
+                var dbFileName = options.path;
 
                 if (dbFileName == null)
                 {
@@ -318,7 +312,7 @@ namespace Org.PGSQLite.SQLitePlugin
 
                 if (_sqliteAPI.Close(dbInfo.Handle) != SQLite.Net.Interop.Result.OK)
                 {
-                    System.Diagnostics.Debug.WriteLine("SQLitePluginModule: Error closing database: " + dbInfo.Path);
+                    Debug.WriteLine("SQLitePluginModule: Error closing database: " + dbInfo.Path);
                 }
 
                 success.Invoke("DB closed");
@@ -383,15 +377,15 @@ namespace Org.PGSQLite.SQLitePlugin
 
         public class DeleteOptions
         {
-            public string Path { get; set; }
+            public string path { get; set; }
         }
 
         [ReactMethod]
-        public void delete(DeleteOptions options, ICallback success, ICallback error)
+        public void delete(DeleteOptions options, ReactCallback<string> success, ReactCallback<string> error)
         {
             QueueWithCancellation(async () =>
             {
-                var dbFileName = options.Path;
+                var dbFileName = options.path;
 
                 if (dbFileName == null)
                 {
@@ -428,76 +422,73 @@ namespace Org.PGSQLite.SQLitePlugin
 
         public class DBArgs
         {
-            public string DBName { get; set; }
+            public string dbname { get; set; }
         }
 
         public class DBQuery
         {
-            public int QID { get; set; }
-            public JArray Params { get; set; } // optional
-            public string SQL { get; set; }
+            public int qid { get; set; }
+            public JSValue Params { get; set; } // optional
+            public string sql { get; set; }
         }
 
         public class ExecuteSqlBatchOptions
         {
-            public DBArgs DBArgs { get; set; }
-            public List<DBQuery> Executes { get; set; }
+            public DBArgs dbargs { get; set; }
+            public List<DBQuery> executes { get; set; }
         }
 
-        private void BindStatement(SQLite.Net.Interop.IDbStatement statement, int argIndex, JToken arg)
+        private void BindStatement(SQLite.Net.Interop.IDbStatement statement, int argIndex, JSValue arg)
         {
             switch (arg.Type)
             {
-                case JTokenType.Undefined:
-                case JTokenType.Null:
+                case JSValueType.Null:
                     _sqliteAPI.BindNull(statement, argIndex);
                     break;
-                case JTokenType.Boolean:
-                    _sqliteAPI.BindInt(statement, argIndex, arg.ToObject<bool>() ? 1 : 0);
+                case JSValueType.Boolean:
+                    _sqliteAPI.BindInt(statement, argIndex, arg.To<bool>() ? 1 : 0);
                     break;
-                case JTokenType.Integer:
-                    _sqliteAPI.BindInt64(statement, argIndex, arg.ToObject<long>());
+                case JSValueType.Int64:
+                    _sqliteAPI.BindInt64(statement, argIndex, arg.To<long>());
                     break;
-                case JTokenType.Float:
-                    _sqliteAPI.BindDouble(statement, argIndex, arg.ToObject<double>());
+                case JSValueType.Double:
+                    _sqliteAPI.BindDouble(statement, argIndex, arg.To<double>());
                     break;
-                case JTokenType.String:
-                    _sqliteAPI.BindText16(statement, argIndex, arg.ToObject<string>(), -1, NegativePointer);
+                case JSValueType.String:
+                    _sqliteAPI.BindText16(statement, argIndex, arg.To<string>(), -1, NegativePointer);
                     break;
                 default:
-                    _sqliteAPI.BindText16(statement, argIndex, arg.ToObject<string>(), -1, NegativePointer);
+                    _sqliteAPI.BindText16(statement, argIndex, arg.To<string>(), -1, NegativePointer);
                     break;
             }
         }
 
-        private object ExtractColumn(SQLite.Net.Interop.IDbStatement statement, int columnIndex)
+        private JSValue ExtractColumn(SQLite.Net.Interop.IDbStatement statement, int columnIndex)
         {
             var columnType = _sqliteAPI.ColumnType(statement, columnIndex);
             switch (columnType)
             {
                 case SQLite.Net.Interop.ColType.Integer:
-                    return _sqliteAPI.ColumnInt64(statement, columnIndex);
+                    return new JSValue(_sqliteAPI.ColumnInt64(statement, columnIndex));
                 case SQLite.Net.Interop.ColType.Float:
-                    return _sqliteAPI.ColumnDouble(statement, columnIndex);
-                case SQLite.Net.Interop.ColType.Blob:
-                    return _sqliteAPI.ColumnBlob(statement, columnIndex);
+                    return new JSValue(_sqliteAPI.ColumnDouble(statement, columnIndex));
                 case SQLite.Net.Interop.ColType.Text:
-                    return _sqliteAPI.ColumnText16(statement, columnIndex);
+                    return new JSValue(_sqliteAPI.ColumnText16(statement, columnIndex));
                 case SQLite.Net.Interop.ColType.Null:
                 default:
-                    return null;
+                    return new JSValue();
             }
         }
 
-        private Dictionary<string, object> ExtractRow(SQLite.Net.Interop.IDbStatement statement)
+        private Dictionary<string, JSValue> ExtractRow(SQLite.Net.Interop.IDbStatement statement)
         {
-            var row = new Dictionary<string, object>();
+            var row = new Dictionary<string, JSValue>();
             var columnCount = _sqliteAPI.ColumnCount(statement);
             for (var i = 0; i < columnCount; i++)
             {
                 var columnName = _sqliteAPI.ColumnName16(statement, i);
-                var columnValue = ExtractColumn(statement, i);
-                if (columnValue != null)
+                JSValue columnValue = ExtractColumn(statement, i);
+                if (!columnValue.IsNull)
                 {
                     row[columnName] = columnValue;
                 }
@@ -510,14 +501,14 @@ namespace Org.PGSQLite.SQLitePlugin
         public event SQLiteErrorEvent OnSQLiteError;
 
         private bool _isExecutingQuery = false;
-        private Dictionary<string, object> ExecuteQuery(OpenDB dbInfo, DBQuery query)
+        private Dictionary<string, JSValue> ExecuteQuery(OpenDB dbInfo, DBQuery query)
         {
-            System.Diagnostics.Debug.Assert(!_isExecutingQuery, "SQLitePluginModule: Only 1 query should be executing at a time.");
+            Debug.Assert(!_isExecutingQuery, "SQLitePluginModule: Only 1 query should be executing at a time.");
 
             _isExecutingQuery = true;
             try
             {
-                if (query.SQL == null)
+                if (query.sql == null)
                 {
                     throw new RNSQLiteException("You must specify a sql query to execute");
                 }
@@ -526,11 +517,11 @@ namespace Org.PGSQLite.SQLitePlugin
                 {
                     var previousRowsAffected = _sqliteAPI.TotalChanges(dbInfo.Handle);
 
-                    var statement = _sqliteAPI.Prepare2(dbInfo.Handle, query.SQL);
-                    if (query.Params != null)
+                    var statement = _sqliteAPI.Prepare2(dbInfo.Handle, query.sql);
+                    if (!query.Params.IsNull)
                     {
                         var argIndex = 0;
-                        foreach (var arg in query.Params.Children())
+                        foreach (var arg in query.Params.To<List<JSValue>>())
                         {
                             // sqlite bind uses 1-based indexing for the arguments
                             BindStatement(statement, argIndex + 1, arg);
@@ -538,9 +529,9 @@ namespace Org.PGSQLite.SQLitePlugin
                         }
                     }
 
-                    var resultRows = new List<Dictionary<string, object>>();
+                    var resultRows = new List<JSValue>();
 
-                    long? insertId = null;
+                    string insertId = null;
                     var rowsAffected = 0;
                     SQLiteError error = null;
                     var keepGoing = true;
@@ -549,7 +540,7 @@ namespace Org.PGSQLite.SQLitePlugin
                         switch (_sqliteAPI.Step(statement))
                         {
                             case SQLite.Net.Interop.Result.Row:
-                                resultRows.Add(ExtractRow(statement));
+                                resultRows.Add(new JSValue(ExtractRow(statement)));
                                 break;
 
                             case SQLite.Net.Interop.Result.Done:
@@ -558,7 +549,7 @@ namespace Org.PGSQLite.SQLitePlugin
                                 var nowInsertId = _sqliteAPI.LastInsertRowid(dbInfo.Handle);
                                 if (rowsAffected > 0 && nowInsertId != 0)
                                 {
-                                    insertId = nowInsertId;
+                                    insertId = nowInsertId.ToString();
                                 }
                                 keepGoing = false;
                                 break;
@@ -580,14 +571,14 @@ namespace Org.PGSQLite.SQLitePlugin
                         throw new RNSQLiteException(error);
                     }
 
-                    var resultSet = new Dictionary<string, object>
+                    var resultSet = new Dictionary<string, JSValue>
                     {
-                        { "rows", resultRows },
-                        { "rowsAffected", rowsAffected }
+                        { "rows", new JSValue(resultRows) },
+                        { "rowsAffected", new JSValue(rowsAffected) }
                     };
                     if (insertId != null)
                     {
-                        resultSet["insertId"] = insertId;
+                        resultSet["insertId"] = new JSValue(insertId);
                     }
                     return resultSet;
                 }
@@ -617,11 +608,11 @@ namespace Org.PGSQLite.SQLitePlugin
         }
 
         [ReactMethod]
-        public void executeSqlBatch(ExecuteSqlBatchOptions options, ICallback success, ICallback error)
+        public void executeSqlBatch(ExecuteSqlBatchOptions options, ReactCallback<JSValue> success, ReactCallback<string> error)
         {
             QueueWithCancellation(() =>
             {
-                var dbFileName = options.DBArgs.DBName;
+                var dbFileName = options.dbargs.dbname;
 
                 if (dbFileName == null)
                 {
@@ -636,38 +627,38 @@ namespace Org.PGSQLite.SQLitePlugin
                     return Task.CompletedTask;
                 }
 
-                var results = new List<Dictionary<string, object>>();
-                foreach (var query in options.Executes)
+                var results = new List<JSValue>();
+                foreach (var query in options.executes)
                 {
                     try
                     {
                         var rawResult = ExecuteQuery(dbInfo, query);
-                        results.Add(new Dictionary<string, object>
+                        results.Add(new JSValue(new Dictionary<string, JSValue>
                     {
-                        { "qid", query.QID },
-                        { "type", "success" },
-                        { "result", rawResult }
-                    });
+                        { "qid", new JSValue(query.qid) },
+                        { "type", new JSValue("success") },
+                        { "result", new JSValue(rawResult) }
+                    }));
                     }
                     catch (RNSQLiteException ex)
                     {
-                        results.Add(new Dictionary<string, object>
+                        results.Add(new JSValue(new Dictionary<string, JSValue>
                     {
-                        { "qid", query.QID },
-                        { "type", "error" },
-                        { "error", ex.JsonMessage },
-                        { "result", ex.JsonMessage }
-                    });
+                        { "qid", new JSValue(query.qid) },
+                        { "type", new JSValue("error") },
+                        { "error", new JSValue(ex.JsonMessage.ToString()) },
+                        { "result", new JSValue(ex.JsonMessage.ToString()) }
+                    }));
                     }
                 }
 
-                success.Invoke(results);
+                success.Invoke(new JSValue(results));
                 return Task.CompletedTask;
             });
         }
 
         [ReactMethod]
-        public void backgroundExecuteSqlBatch(ExecuteSqlBatchOptions options, ICallback success, ICallback error)
+        public void backgroundExecuteSqlBatch(ExecuteSqlBatchOptions options, ReactCallback<JSValue> success, ReactCallback<string> error)
         {
             // Currently, all ReactMethods are run on the same ActionQueue. This prevents
             // queries from being able to run in parallel but it makes the code simpler.
