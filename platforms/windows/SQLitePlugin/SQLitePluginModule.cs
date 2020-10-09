@@ -200,7 +200,7 @@ namespace SQLitePlugin
         }
 
         [ReactMethod]
-        public void echoStringValue(EchoStringValueOptions options, ReactCallback<string> success, ReactCallback<string> error)
+        public void echoStringValue(EchoStringValueOptions options, Action<string> success, Action<string> error)
         {
             QueueWithCancellation(() =>
             {
@@ -221,7 +221,7 @@ namespace SQLitePlugin
         }
 
         [ReactMethod]
-        public void open(OpenOptions options, ReactCallback<string> success, ReactCallback<string> error)
+        public void open(OpenOptions options, Action<string> success, Action<string> error)
         {
             QueueWithCancellation(async () =>
             {
@@ -289,7 +289,7 @@ namespace SQLitePlugin
         }
 
         [ReactMethod]
-        public void close(CloseOptions options, ReactCallback<string> success, ReactCallback<string> error)
+        public void close(CloseOptions options, Action<string> success, Action<string> error)
         {
             QueueWithCancellation(() =>
             {
@@ -328,7 +328,7 @@ namespace SQLitePlugin
         }
 
         [ReactMethod]
-        public void attach(JSValue options, ReactCallback<string> success, ReactCallback<string> error)
+        public void attach(JSValue options, Action<string> success, Action<string> error)
         {
             QueueWithCancellation(() =>
             {
@@ -381,7 +381,7 @@ namespace SQLitePlugin
         }
 
         [ReactMethod]
-        public void delete(DeleteOptions options, ReactCallback<string> success, ReactCallback<string> error)
+        public void delete(DeleteOptions options, Action<string> success, Action<string> error)
         {
             QueueWithCancellation(async () =>
             {
@@ -608,7 +608,7 @@ namespace SQLitePlugin
         }
 
         [ReactMethod]
-        public void executeSqlBatch(ExecuteSqlBatchOptions options, ReactCallback<JSValue> success, ReactCallback<string> error)
+        public void executeSqlBatch(ExecuteSqlBatchOptions options, Action<JSValue> success, Action<string> error)
         {
             QueueWithCancellation(() =>
             {
@@ -658,7 +658,7 @@ namespace SQLitePlugin
         }
 
         [ReactMethod]
-        public void backgroundExecuteSqlBatch(ExecuteSqlBatchOptions options, ReactCallback<JSValue> success, ReactCallback<string> error)
+        public void backgroundExecuteSqlBatch(ExecuteSqlBatchOptions options, Action<JSValue> success, Action<string> error)
         {
             // Currently, all ReactMethods are run on the same ActionQueue. This prevents
             // queries from being able to run in parallel but it makes the code simpler.
