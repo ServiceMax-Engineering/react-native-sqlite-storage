@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using Microsoft.ReactNative.Managed;
 using System.Diagnostics;
 using Microsoft.ReactNative;
+using MetroLog;
 
 namespace SQLitePlugin
 {
@@ -45,6 +46,7 @@ namespace SQLitePlugin
         }
 
         private static readonly IntPtr NegativePointer = new IntPtr(-1);
+        private ILogger Log;
 
         private static WebSQLError sqliteToWebSQLError(SQLite.Net.Interop.Result sqliteError)
         {
@@ -71,6 +73,7 @@ namespace SQLitePlugin
                 code = aCode;
                 message = aMessage;
             }
+
         }
 
         private class RNSQLiteException : Exception
@@ -166,6 +169,7 @@ namespace SQLitePlugin
         /// </summary>
         public SQLitePlugin() : base()
         {
+            this.Log = LogManagerFactory.DefaultLogManager.GetLogger<SQLitePlugin>();
             _sqliteAPI = new SQLite.Net.Platform.WinRT.SQLiteApiWinRT(tempFolderPath: null, useWinSqlite: true);
         }
 
@@ -505,6 +509,7 @@ namespace SQLitePlugin
         {
             Debug.Assert(!_isExecutingQuery, "SQLitePluginModule: Only 1 query should be executing at a time.");
 
+            this.Log.Debug("start {0}", query.sql);
             _isExecutingQuery = true;
             try
             {
@@ -591,6 +596,7 @@ namespace SQLitePlugin
             }
             finally
             {
+                this.Log.Debug("end {0}", query.sql);
                 _isExecutingQuery = false;
             }
         }
