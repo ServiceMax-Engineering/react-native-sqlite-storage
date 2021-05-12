@@ -166,7 +166,7 @@ namespace SQLitePlugin
         /// </summary>
         public SQLitePlugin() : base()
         {
-            _sqliteAPI = new SQLite.Net.Platform.WinRT.SQLiteApiWinRT(tempFolderPath: null, useWinSqlite: true);
+            _sqliteAPI = new SQLite.Net.Platform.WinRT.SQLiteApiWinRT(tempFolderPath: null, useWinSqlite: false);
         }
 
 

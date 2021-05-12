@@ -132,6 +132,9 @@
     <PackageReference Include="Newtonsoft.Json">
       <Version>12.0.3</Version>
     </PackageReference>
+    <PackageReference Include="SQLite.uwp">
+      <Version>3.35.5</Version>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\react-native-windows\Microsoft.ReactNative\Microsoft.ReactNative.vcxproj">
